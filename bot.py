@@ -1,11 +1,13 @@
 import logging
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.request import HTTPXRequest
 
-# Configure logging to catch network issues cleanly
+# Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -20,6 +22,24 @@ if not BOT_TOKEN:
     raise ValueError("Error: BOT_TOKEN is missing. Please set it in your .env file.")
 
 WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app"
+
+# Lightweight HTTP Health Check server to satisfy Render's Web Service port requirement
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running")
+
+    def log_message(self, format, *args):
+        # Silence HTTP access logs in terminal
+        return
+
+def start_health_check_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    logger.info(f"Health check server listening on port {port}")
+    server.serve_forever()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
@@ -59,6 +79,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error("Exception while handling an update:", exc_info=context.error)
 
 def main():
+    # Start health check server in background thread for Render port binding
+    threading.Thread(target=start_health_check_server, daemon=True).start()
+
     # Configure HTTP client timeouts for weak or high-latency connections
     request = HTTPXRequest(
         connect_timeout=30.0,
@@ -73,7 +96,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_error_handler(error_handler)
     
-    print("Bot is starting...")
+    logger.info("Bot is starting...")
     
     # Run polling loop with connection resilience
     app.run_polling(poll_interval=1.0)
