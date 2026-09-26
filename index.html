@@ -30,35 +30,37 @@
             width: 100vw;
         }
 
-        /* Status overlay banner */
+        /* Live status banner overlay */
         #status-banner {
             position: absolute;
             top: 12px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             color: #ffffff;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border-radius: 24px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(6px);
+            width: 85%;
+            max-width: 380px;
             pointer-events: none;
-            transition: opacity 0.3s ease;
+            transition: all 0.3s ease;
         }
 
-        /* Animated pulsing dot for user live GPS position */
+        /* Pulsing indicator for live location */
         .user-position-icon {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             background-color: #2563eb;
             border: 3px solid #ffffff;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(37, 99, 235, 0.8);
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.9);
+            animation: pulse 1.8s infinite;
         }
 
         @keyframes pulse {
@@ -78,11 +80,10 @@
 </head>
 
 <body>
-    <div id="status-banner">Loading route details...</div>
+    <div id="status-banner">📡 Initializing GPS & route guidance...</div>
     <div id="map"></div>
 
     <script>
-        // Tell Telegram to expand window
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
@@ -90,26 +91,26 @@
 
         const statusBanner = document.getElementById('status-banner');
 
-        // Parse query params from Telegram buttons (?dest=church&start=gps)
+        // Parse query params (?dest=church&start=gps)
         const urlParams = new URLSearchParams(window.location.search);
         const destKey = urlParams.get('dest') || 'church';
         const startType = urlParams.get('start') || 'gps';
 
         // -----------------------------------------------------------------
-        // PRE-REGISTERED LOCATIONS AND COORDINATES
+        // EXACT PRE-REGISTERED LOCATIONS
         // -----------------------------------------------------------------
         const destinations = {
             church: {
                 name: "West MKC Church",
                 coords: [9.608728675889507, 41.8406279766799]
             },
-            gathering: {
+            chapel: {
                 name: "Chapel",
                 coords: [9.61657255310512, 41.84273154415636]
             }
         };
 
-        const universityGate = {
+        const uniGate = {
             name: "University Gate [Toni]",
             coords: [9.616223333752004, 41.840802330192034]
         };
@@ -117,51 +118,44 @@
         const targetDestination = destinations[destKey] || destinations['church'];
 
         // Initialize Map
-        const map = L.map('map', {
-            zoomControl: true
-        }).setView(targetDestination.coords, 15);
+        const map = L.map('map', { zoomControl: true }).setView(targetDestination.coords, 16);
 
-        // Map Layers (Street View and Esri World Imagery Satellite View)
-        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        });
-
+        // Tile Layers (Satellite + Standard Street)
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
             attribution: 'Tiles © Esri'
         });
 
-        // Add street layer by default
-        streetLayer.addTo(map);
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        });
 
-        // Layer switcher top-right
+        // Set Satellite as default background
+        satelliteLayer.addTo(map);
+
         L.control.layers({
-            "Street Map": streetLayer,
-            "Satellite": satelliteLayer
+            "Satellite": satelliteLayer,
+            "Street Map": streetLayer
         }, null, { position: 'topright' }).addTo(map);
 
-        // Add Permanent Pin Marker for Destination
-        const destMarker = L.marker(targetDestination.coords)
+        // Add Target Pin
+        L.marker(targetDestination.coords)
             .addTo(map)
             .bindPopup(`<b>📍 ${targetDestination.name}</b>`)
             .openPopup();
 
-        // Variables for route control and user live marker
         let routingControl = null;
         let userMarker = null;
-        let watchId = null;
 
-        // Custom icon for live user movement
         const userLiveIcon = L.divIcon({
             className: 'user-position-icon',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
         });
 
-        // Function to create or update turning route
-        function updateRoute(startCoords, startLabel) {
-            statusBanner.innerText = `Routing from ${startLabel} to ${targetDestination.name}`;
+        function renderRoute(startCoords, startName) {
+            statusBanner.innerText = `🧭 Now guiding you to ${targetDestination.name} (from ${startName})`;
 
             if (routingControl) {
                 map.removeControl(routingControl);
@@ -174,73 +168,57 @@
                 ],
                 router: L.Routing.osrmv1({
                     serviceUrl: 'https://router.project-osrm.org/route/v1',
-                    profile: 'foot' // Optimized for walking routes
+                    profile: 'foot'
                 }),
                 routeWhileDragging: false,
                 addWaypoints: false,
                 draggableWaypoints: false,
                 showAlternatives: false,
                 lineOptions: {
-                    styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }]
+                    styles: [{ color: '#38bdf8', opacity: 0.9, weight: 6 }]
                 }
             }).addTo(map);
-
-            setTimeout(() => {
-                statusBanner.style.opacity = '0';
-            }, 5000);
         }
 
-        // Start from University Gate [Toni]
         if (startType === 'uni') {
-            L.marker(universityGate.coords)
+            L.marker(uniGate.coords)
                 .addTo(map)
-                .bindPopup(`<b>🏫 ${universityGate.name}</b>`);
+                .bindPopup(`<b>🏫 ${uniGate.name}</b>`);
 
-            updateRoute(universityGate.coords, universityGate.name);
+            renderRoute(uniGate.coords, uniGate.name);
         } else {
-            // Start from Live GPS Location and enable live movement tracking
-            statusBanner.innerText = "Acquiring your live GPS position...";
+            statusBanner.innerText = `📡 Locating your position...`;
 
             if ("geolocation" in navigator) {
-                // Continuous location updates as user walks
-                watchId = navigator.geolocation.watchPosition(
+                navigator.geolocation.watchPosition(
                     (position) => {
-                        const userLat = position.coords.latitude;
-                        const userLng = position.coords.longitude;
-                        const currentGpsCoords = [userLat, userLng];
+                        const userCoords = [position.coords.latitude, position.coords.longitude];
 
-                        // Update or create live position marker
                         if (!userMarker) {
-                            userMarker = L.marker(currentGpsCoords, { icon: userLiveIcon })
+                            userMarker = L.marker(userCoords, { icon: userLiveIcon })
                                 .addTo(map)
                                 .bindPopup("<b>📱 You are here</b>");
 
-                            // Build initial route
-                            updateRoute(currentGpsCoords, "Your Live Location");
+                            renderRoute(userCoords, "Your Live Location");
                         } else {
-                            userMarker.setLatLng(currentGpsCoords);
+                            userMarker.setLatLng(userCoords);
+                            statusBanner.innerText = `🚶 Now guiding you to ${targetDestination.name} — Tracking your movement live`;
                         }
                     },
                     (error) => {
-                        console.warn("GPS failed, using fallback:", error.message);
-                        statusBanner.innerText = "GPS unavailable. Starting from University Gate [Toni]...";
-                        statusBanner.style.opacity = '1';
+                        console.warn("GPS error, switching to University Gate [Toni]:", error);
+                        statusBanner.innerText = `⚠️ GPS off. Guiding from ${uniGate.name} to ${targetDestination.name}`;
 
-                        L.marker(universityGate.coords)
+                        L.marker(uniGate.coords)
                             .addTo(map)
-                            .bindPopup(`<b>🏫 ${universityGate.name}</b>`);
+                            .bindPopup(`<b>🏫 ${uniGate.name}</b>`);
 
-                        updateRoute(universityGate.coords, `${universityGate.name} (Fallback)`);
+                        renderRoute(uniGate.coords, uniGate.name);
                     },
-                    {
-                        enableHighAccuracy: true,
-                        maximumAge: 5000,
-                        timeout: 10000
-                    }
+                    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
                 );
             } else {
-                // Fallback for unsupported devices
-                updateRoute(universityGate.coords, universityGate.name);
+                renderRoute(uniGate.coords, uniGate.name);
             }
         }
     </script>
