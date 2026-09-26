@@ -45,25 +45,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [
             InlineKeyboardButton(
-                "📍 Church (From My Live GPS Location)", 
+                "📍 West MKC Church (From Live GPS)", 
                 web_app={"url": f"{WEBAPP_URL}?dest=church&start=gps"}
             )
         ],
         [
             InlineKeyboardButton(
-                "📍 Church (From University Gate)", 
+                "📍 West MKC Church (From University Gate [Toni])", 
                 web_app={"url": f"{WEBAPP_URL}?dest=church&start=uni"}
             )
         ],
         [
             InlineKeyboardButton(
-                "🏠 Chapel (From My Live GPS Location)", 
+                "🏠 Chapel (From Live GPS)", 
                 web_app={"url": f"{WEBAPP_URL}?dest=gathering&start=gps"}
             )
         ],
         [
             InlineKeyboardButton(
-                "🏠 Chapel (From University Gate)", 
+                "🏠 Chapel (From University Gate [Toni])", 
                 web_app={"url": f"{WEBAPP_URL}?dest=gathering&start=uni"}
             )
         ]
@@ -82,7 +82,7 @@ def main():
     # Start health check server in background thread for Render port binding
     threading.Thread(target=start_health_check_server, daemon=True).start()
 
-    # Configure HTTP client timeouts for weak or high-latency connections
+    # Configure HTTP client timeouts for connection resilience
     request = HTTPXRequest(
         connect_timeout=30.0,
         read_timeout=30.0,
@@ -98,7 +98,7 @@ def main():
     
     logger.info("Bot is starting...")
     
-    # Run polling loop with connection resilience
+    # Run polling loop
     app.run_polling(poll_interval=1.0)
 
 if __name__ == "__main__":
