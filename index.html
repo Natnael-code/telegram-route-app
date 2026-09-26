@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fellowship Navigation</title>
+
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Leaflet Maps CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Routing Machine CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Loading / Status overlay banner */
+        #status-banner {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="status-banner">Locating destination...</div>
+    <div id="map"></div>
+
+    <script>
+        // Tell Telegram to expand window
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+
+        const statusBanner = document.getElementById('status-banner');
+
+        // Read query parameters passed from Telegram bot buttons
+        // e.g., ?dest=church&start=gps OR ?dest=gathering&start=uni
+        const urlParams = new URLSearchParams(window.location.search);
+        const destKey = urlParams.get('dest') || 'church';
+        const startType = urlParams.get('start') || 'gps';
+
+        // -----------------------------------------------------------------
+        // 1. REGISTER YOUR PRE-REGISTERED DESTINATIONS HERE [Lat, Lng]
+        // -----------------------------------------------------------------
+        const destinations = {
+            church: {
+                name: "Fellowship Church",
+                coords: [9.608728675889507, 41.8406279766799] // Replace with actual Church [Lat, Lng]
+            },
+            gathering: {
+                name: "chaple",
+                coords: [9.61657255310512, 41.84273154415636] // Replace with actual Gathering Spot [Lat, Lng]
+            }
+        };
+
+        // -----------------------------------------------------------------
+        // 2. REGISTER UNIVERSITY GATE COORDINATES HERE [Lat, Lng]
+        // -----------------------------------------------------------------
+        const universityGate = {
+            name: "University Gate",
+            coords: [9.616223333752004, 41.840802330192034] // Replace with actual University Gate [Lat, Lng]
+        };
+
+        const targetDestination = destinations[destKey] || destinations['church'];
+
+        // Default map view (centers on destination initially)
+        const map = L.map('map').setView(targetDestination.coords, 14);
+
+        // Add OpenStreetMap layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Helper function to build the route on map
+        function buildRoute(startCoords, startLabel) {
+            statusBanner.innerText = `Routing from ${startLabel} to ${targetDestination.name}`;
+            setTimeout(() => { statusBanner.style.display = 'none'; }, 4000);
+
+            L.Routing.control({
+                waypoints: [
+                    L.latLng(startCoords[0], startCoords[1]),
+                    L.latLng(targetDestination.coords[0], targetDestination.coords[1])
+                ],
+                routeWhileDragging: false,
+                addWaypoints: false,
+                draggableWaypoints: false
+            }).addTo(map);
+        }
+
+        // Determine starting location mode
+        if (startType === 'uni') {
+            // Start directly from University Gate
+            buildRoute(universityGate.coords, "University Gate");
+        } else {
+            // Start from User's Live GPS Location
+            statusBanner.innerText = "Requesting your GPS location...";
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        buildRoute([userLat, userLng], "Your Current Location");
+                    },
+                    (error) => {
+                        console.warn("GPS failed, falling back to University Gate:", error.message);
+                        statusBanner.innerText = "GPS unavailable. Starting from University Gate...";
+                        buildRoute(universityGate.coords, "University Gate (Fallback)");
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                // Fallback if device doesn't support GPS
+                buildRoute(universityGate.coords, "University Gate");
+            }
+        }
+    </script>
+</body>
+
+</html>
