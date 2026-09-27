@@ -20,7 +20,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("Error: BOT_TOKEN missing in .env file.")
 
-WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/"
+# Fixed URL pointing directly to index.html without trailing slashes
+WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/index.html"
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -39,41 +40,49 @@ def start_health_check_server():
     server.serve_forever()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Inline buttons utilizing WebAppInfo class required by Telegram SDK
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                "📍fellow - West MKC Church (Live GPS)", 
-                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "📍 fellow - West MKC Church (From University Gate [Toni])", 
-                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "⛪ Chapel (Live GPS)", 
-                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=gps")
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                "⛪ Chapel (From University Gate [Toni])", 
-                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=uni")
-            )
+    try:
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "📍 fellow - West MKC Church (Live GPS)", 
+                    web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📍 fellow - West MKC Church (From University Gate [Toni])", 
+                    web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⛪ Chapel (Live GPS)", 
+                    web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=gps")
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⛪ Chapel (From University Gate [Toni])", 
+                    web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=uni")
+                )
+            ]
         ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
-        "Welcome to the Fellowship Navigation Bot! ⛪\n\nSelect your starting point and destination below:  " \
-        "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chaple \n" \
-        "genral fellow  ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶሰ"
-        ,
-        reply_markup=reply_markup
-    )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        welcome_text = (
+            "Welcome to the Fellowship Navigation Bot! ⛪\n\n"
+            "Select your starting point and destination below:\n"
+            "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chapel\n"
+            "general fellow ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶስ"
+        )
+        
+        await update.message.reply_text(
+            welcome_text,
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        logger.error(f"Error in start command: {e}")
+        await update.message.reply_text("Unable to load navigation options. Please try again.")
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Error occurred:", exc_info=context.error)
