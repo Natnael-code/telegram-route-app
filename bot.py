@@ -20,7 +20,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("Error: BOT_TOKEN missing in .env file.")
 
-WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app"
+WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/index.html"
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -43,13 +43,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [
             InlineKeyboardButton(
-                "📍 West MKC Church (Live GPS)", 
+                "📍fellow - West MKC Church (Live GPS)", 
                 web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
             )
         ],
         [
             InlineKeyboardButton(
-                "📍 West MKC Church (From University Gate [Toni])", 
+                "📍 fellow - West MKC Church (From University Gate [Toni])", 
                 web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
             )
         ],
@@ -68,7 +68,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Welcome to the Fellowship Navigation Bot! ⛪\n\nSelect your starting point and destination below:",
+        "Welcome to the Fellowship Navigation Bot! ⛪\n\nSelect your starting point and destination below:  " \
+        "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chaple \n" \
+        "genral fellow  ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶሰ"
+        ,
         reply_markup=reply_markup
     )
 
