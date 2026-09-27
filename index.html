@@ -116,10 +116,23 @@
 
         const statusBanner = document.getElementById('status-banner');
 
-        // Parse query params (?dest=church&start=gps)
-        const urlParams = new URLSearchParams(window.location.search);
-        const destKey = urlParams.get('dest') || 'church';
-        const startType = urlParams.get('start') || 'gps';
+        // Robust URL parameter parser to handle Telegram hash/query modifications
+        function getURLParam(key) {
+            const searchParams = new URLSearchParams(window.location.search);
+            if (searchParams.has(key)) return searchParams.get(key);
+
+            if (window.location.hash) {
+                const hashString = window.location.hash.substring(1);
+                const hashParams = new URLSearchParams(hashString.includes('?') ? hashString.split('?')[1] : hashString);
+                if (hashParams.has(key)) return hashParams.get(key);
+            }
+
+            const match = new RegExp('[?&]' + key + '=([^&#]*)').exec(window.location.href);
+            return match ? decodeURIComponent(match[1].replace(/\+/g, ' ')) : null;
+        }
+
+        const destKey = getURLParam('dest') || 'church';
+        const startType = getURLParam('start') || 'gps';
 
         // -----------------------------------------------------------------
         // ALL 3 EXACT LOCATIONS

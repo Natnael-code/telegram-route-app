@@ -20,7 +20,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("Error: BOT_TOKEN missing in .env file.")
 
-# Fixed URL pointing directly to index.html without trailing slashes
 WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/index.html"
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
