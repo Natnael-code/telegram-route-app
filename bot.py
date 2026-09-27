@@ -20,7 +20,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("Error: BOT_TOKEN missing in .env file.")
 
-WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/index.html"
+WEBAPP_URL = "https://natnael-code.github.io/telegram-route-app/"
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
