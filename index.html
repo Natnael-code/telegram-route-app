@@ -37,19 +37,30 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.92);
             color: #ffffff;
-            padding: 12px 20px;
-            border-radius: 24px;
+            padding: 10px 18px;
+            border-radius: 20px;
             font-size: 13px;
             font-weight: 600;
             text-align: center;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
             backdrop-filter: blur(6px);
             width: 85%;
             max-width: 380px;
             pointer-events: none;
-            transition: all 0.3s ease;
+        }
+
+        /* Permanent landmark badge styles */
+        .landmark-label {
+            background-color: #0f172a;
+            color: #ffffff;
+            border: 1px solid #38bdf8;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-weight: bold;
+            font-size: 11px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
         }
 
         /* Pulsing indicator for live location */
@@ -76,11 +87,25 @@
                 box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
             }
         }
+
+        /* Customizing Leaflet Routing Machine Panel for Mobile */
+        .leaflet-routing-container {
+            background: rgba(15, 23, 42, 0.9) !important;
+            color: #ffffff !important;
+            border-radius: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        .leaflet-routing-alt {
+            color: #ffffff !important;
+        }
     </style>
 </head>
 
 <body>
-    <div id="status-banner">📡 Initializing GPS & route guidance...</div>
+    <div id="status-banner">📡 Initializing live satellite navigation...</div>
     <div id="map"></div>
 
     <script>
@@ -97,53 +122,73 @@
         const startType = urlParams.get('start') || 'gps';
 
         // -----------------------------------------------------------------
-        // EXACT PRE-REGISTERED LOCATIONS
+        // ALL 3 EXACT LOCATIONS
         // -----------------------------------------------------------------
-        const destinations = {
+        const locations = {
+            gate: {
+                name: "University Gate [Toni]",
+                coords: [9.616223333752004, 41.840802330192034],
+                icon: "🏫"
+            },
             church: {
                 name: "West MKC Church",
-                coords: [9.608728675889507, 41.8406279766799]
+                coords: [9.608728675889507, 41.8406279766799],
+                icon: "📍"
             },
             chapel: {
                 name: "Chapel",
-                coords: [9.61657255310512, 41.84273154415636]
+                coords: [9.61657255310512, 41.84273154415636],
+                icon: "⛪"
             }
         };
 
-        const uniGate = {
-            name: "University Gate [Toni]",
-            coords: [9.616223333752004, 41.840802330192034]
-        };
+        const targetDestination = locations[destKey] || locations['church'];
 
-        const targetDestination = destinations[destKey] || destinations['church'];
-
-        // Initialize Map
+        // Initialize Map centered on target
         const map = L.map('map', { zoomControl: true }).setView(targetDestination.coords, 16);
 
-        // Tile Layers (Satellite + Standard Street)
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        // -----------------------------------------------------------------
+        // SATELLITE MAP TILE LAYERS
+        // -----------------------------------------------------------------
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Google Satellite'
+        });
+
+        const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
-            attribution: 'Tiles © Esri'
+            attribution: 'Esri Satellite'
         });
 
         const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '© OpenStreetMap'
+            attribution: 'OpenStreetMap'
         });
 
-        // Set Satellite as default background
-        satelliteLayer.addTo(map);
+        // Set Google Hybrid Satellite view as default
+        googleHybrid.addTo(map);
 
         L.control.layers({
-            "Satellite": satelliteLayer,
+            "Satellite (Google)": googleHybrid,
+            "Satellite (Esri)": esriSatellite,
             "Street Map": streetLayer
         }, null, { position: 'topright' }).addTo(map);
 
-        // Add Target Pin
-        L.marker(targetDestination.coords)
-            .addTo(map)
-            .bindPopup(`<b>📍 ${targetDestination.name}</b>`)
-            .openPopup();
+        // -----------------------------------------------------------------
+        // DISPLAY AND NAME ALL 3 LOCATIONS ON MAP
+        // -----------------------------------------------------------------
+        Object.keys(locations).forEach((key) => {
+            const loc = locations[key];
+            const marker = L.marker(loc.coords).addTo(map);
+
+            // Permanent visible title tooltip on the map
+            marker.bindTooltip(`${loc.icon} ${loc.name}`, {
+                permanent: true,
+                direction: 'top',
+                className: 'landmark-label'
+            });
+        });
 
         let routingControl = null;
         let userMarker = null;
@@ -154,40 +199,42 @@
             iconAnchor: [9, 9]
         });
 
-        function renderRoute(startCoords, startName) {
-            statusBanner.innerText = `🧭 Now guiding you to ${targetDestination.name} (from ${startName})`;
+        // Render turn-by-turn guidance route
+        function updateRoute(startCoords, startName) {
+            statusBanner.innerText = `🚶 Guiding you to ${targetDestination.name} (from ${startName})`;
 
-            if (routingControl) {
-                map.removeControl(routingControl);
-            }
-
-            routingControl = L.Routing.control({
-                waypoints: [
+            if (!routingControl) {
+                routingControl = L.Routing.control({
+                    waypoints: [
+                        L.latLng(startCoords[0], startCoords[1]),
+                        L.latLng(targetDestination.coords[0], targetDestination.coords[1])
+                    ],
+                    router: L.Routing.osrmv1({
+                        serviceUrl: 'https://router.project-osrm.org/route/v1',
+                        profile: 'foot'
+                    }),
+                    routeWhileDragging: false,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    showAlternatives: false,
+                    collapsible: true,
+                    lineOptions: {
+                        styles: [{ color: '#38bdf8', opacity: 0.9, weight: 6 }]
+                    }
+                }).addTo(map);
+            } else {
+                // Dynamically update user starting position as they move
+                routingControl.setWaypoints([
                     L.latLng(startCoords[0], startCoords[1]),
                     L.latLng(targetDestination.coords[0], targetDestination.coords[1])
-                ],
-                router: L.Routing.osrmv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1',
-                    profile: 'foot'
-                }),
-                routeWhileDragging: false,
-                addWaypoints: false,
-                draggableWaypoints: false,
-                showAlternatives: false,
-                lineOptions: {
-                    styles: [{ color: '#38bdf8', opacity: 0.9, weight: 6 }]
-                }
-            }).addTo(map);
+                ]);
+            }
         }
 
         if (startType === 'uni') {
-            L.marker(uniGate.coords)
-                .addTo(map)
-                .bindPopup(`<b>🏫 ${uniGate.name}</b>`);
-
-            renderRoute(uniGate.coords, uniGate.name);
+            updateRoute(locations.gate.coords, locations.gate.name);
         } else {
-            statusBanner.innerText = `📡 Locating your position...`;
+            statusBanner.innerText = `📡 Locating your GPS position...`;
 
             if ("geolocation" in navigator) {
                 navigator.geolocation.watchPosition(
@@ -199,26 +246,22 @@
                                 .addTo(map)
                                 .bindPopup("<b>📱 You are here</b>");
 
-                            renderRoute(userCoords, "Your Live Location");
+                            updateRoute(userCoords, "Your Live Location");
                         } else {
                             userMarker.setLatLng(userCoords);
-                            statusBanner.innerText = `🚶 Now guiding you to ${targetDestination.name} — Tracking your movement live`;
+                            updateRoute(userCoords, "Your Live Location");
+                            statusBanner.innerText = `🚶 Guiding to ${targetDestination.name} — Tracking movement`;
                         }
                     },
                     (error) => {
-                        console.warn("GPS error, switching to University Gate [Toni]:", error);
-                        statusBanner.innerText = `⚠️ GPS off. Guiding from ${uniGate.name} to ${targetDestination.name}`;
-
-                        L.marker(uniGate.coords)
-                            .addTo(map)
-                            .bindPopup(`<b>🏫 ${uniGate.name}</b>`);
-
-                        renderRoute(uniGate.coords, uniGate.name);
+                        console.warn("GPS failed, switching to University Gate [Toni]:", error);
+                        statusBanner.innerText = `⚠️ GPS unavailable. Guiding from ${locations.gate.name}`;
+                        updateRoute(locations.gate.coords, `${locations.gate.name} (Fallback)`);
                     },
-                    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+                    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
                 );
             } else {
-                renderRoute(uniGate.coords, uniGate.name);
+                updateRoute(locations.gate.coords, locations.gate.name);
             }
         }
     </script>

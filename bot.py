@@ -3,7 +3,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.request import HTTPXRequest
 
@@ -39,29 +39,30 @@ def start_health_check_server():
     server.serve_forever()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Inline buttons utilizing WebAppInfo class required by Telegram SDK
     keyboard = [
         [
             InlineKeyboardButton(
-                "📍 main fellow - West MKC Church (Live GPS)", 
-                web_app={"url": f"{WEBAPP_URL}?dest=church&start=gps"}
+                "📍 West MKC Church (Live GPS)", 
+                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
             )
         ],
         [
             InlineKeyboardButton(
-                "📍main fellow - West MKC Church (From University Gate [Toni])", 
-                web_app={"url": f"{WEBAPP_URL}?dest=church&start=uni"}
+                "📍 West MKC Church (From University Gate [Toni])", 
+                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
             )
         ],
         [
             InlineKeyboardButton(
                 "⛪ Chapel (Live GPS)", 
-                web_app={"url": f"{WEBAPP_URL}?dest=chapel&start=gps"}
+                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=gps")
             )
         ],
         [
             InlineKeyboardButton(
                 "⛪ Chapel (From University Gate [Toni])", 
-                web_app={"url": f"{WEBAPP_URL}?dest=chapel&start=uni"}
+                web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=uni")
             )
         ]
     ]
