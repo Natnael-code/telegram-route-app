@@ -48,7 +48,8 @@
             backdrop-filter: blur(6px);
             width: 85%;
             max-width: 380px;
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: pointer;
         }
 
         /* Permanent landmark badge styles */
@@ -88,7 +89,6 @@
             }
         }
 
-        /* Customizing Leaflet Routing Machine Panel for Mobile */
         .leaflet-routing-container {
             background: rgba(15, 23, 42, 0.9) !important;
             color: #ffffff !important;
@@ -105,7 +105,7 @@
 </head>
 
 <body>
-    <div id="status-banner">📡 Initializing live satellite navigation...</div>
+    <div id="status-banner" onclick="retryGPS()">📡 Initializing live navigation...</div>
     <div id="map"></div>
 
     <script>
@@ -116,7 +116,6 @@
 
         const statusBanner = document.getElementById('status-banner');
 
-        // Robust URL parameter parser to handle Telegram hash/query modifications
         function getURLParam(key) {
             const searchParams = new URLSearchParams(window.location.search);
             if (searchParams.has(key)) return searchParams.get(key);
@@ -134,9 +133,6 @@
         const destKey = getURLParam('dest') || 'church';
         const startType = getURLParam('start') || 'gps';
 
-        // -----------------------------------------------------------------
-        // ALL 3 EXACT LOCATIONS
-        // -----------------------------------------------------------------
         const locations = {
             gate: {
                 name: "University Gate [Toni]",
@@ -157,21 +153,12 @@
 
         const targetDestination = locations[destKey] || locations['church'];
 
-        // Initialize Map centered on target
         const map = L.map('map', { zoomControl: true }).setView(targetDestination.coords, 16);
 
-        // -----------------------------------------------------------------
-        // SATELLITE MAP TILE LAYERS
-        // -----------------------------------------------------------------
         const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
             maxZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
             attribution: 'Google Satellite'
-        });
-
-        const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: 'Esri Satellite'
         });
 
         const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -179,23 +166,16 @@
             attribution: 'OpenStreetMap'
         });
 
-        // Set Google Hybrid Satellite view as default
         googleHybrid.addTo(map);
 
         L.control.layers({
             "Satellite (Google)": googleHybrid,
-            "Satellite (Esri)": esriSatellite,
             "Street Map": streetLayer
         }, null, { position: 'topright' }).addTo(map);
 
-        // -----------------------------------------------------------------
-        // DISPLAY AND NAME ALL 3 LOCATIONS ON MAP
-        // -----------------------------------------------------------------
         Object.keys(locations).forEach((key) => {
             const loc = locations[key];
             const marker = L.marker(loc.coords).addTo(map);
-
-            // Permanent visible title tooltip on the map
             marker.bindTooltip(`${loc.icon} ${loc.name}`, {
                 permanent: true,
                 direction: 'top',
@@ -205,6 +185,7 @@
 
         let routingControl = null;
         let userMarker = null;
+        let isInitialZoomDone = false;
 
         const userLiveIcon = L.divIcon({
             className: 'user-position-icon',
@@ -212,9 +193,8 @@
             iconAnchor: [9, 9]
         });
 
-        // Render turn-by-turn guidance route
         function updateRoute(startCoords, startName) {
-            statusBanner.innerText = `🚶 Guiding you to ${targetDestination.name} (from ${startName})`;
+            statusBanner.innerText = `🚶 Guiding to ${targetDestination.name} (from ${startName})`;
 
             if (!routingControl) {
                 routingControl = L.Routing.control({
@@ -236,46 +216,84 @@
                     }
                 }).addTo(map);
             } else {
-                // Dynamically update user starting position as they move
                 routingControl.setWaypoints([
                     L.latLng(startCoords[0], startCoords[1]),
                     L.latLng(targetDestination.coords[0], targetDestination.coords[1])
                 ]);
+            }
+
+            // Fit map view to show both user and destination
+            if (!isInitialZoomDone) {
+                const bounds = L.latLngBounds([startCoords, targetDestination.coords]);
+                map.fitBounds(bounds, { padding: [60, 60] });
+                isInitialZoomDone = true;
+            }
+        }
+
+        function handleGPSSuccess(position) {
+            const userCoords = [position.coords.latitude, position.coords.longitude];
+
+            if (!userMarker) {
+                userMarker = L.marker(userCoords, { icon: userLiveIcon })
+                    .addTo(map)
+                    .bindPopup("<b>📱 You are here</b>");
+            } else {
+                userMarker.setLatLng(userCoords);
+            }
+
+            updateRoute(userCoords, "Your Live Location");
+        }
+
+        function handleGPSError(error) {
+            console.warn("GPS acquire error:", error);
+            statusBanner.innerText = `⚠️ GPS disabled/unavailable. Tap to retry or routing from Gate.`;
+            updateRoute(locations.gate.coords, `${locations.gate.name} (Fallback)`);
+        }
+
+        function acquireGPS() {
+            statusBanner.innerText = `📡 Locating your GPS position...`;
+
+            if ("geolocation" in navigator) {
+                // High accuracy request with fallback to standard accuracy
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => handleGPSSuccess(pos),
+                    (err) => {
+                        console.warn("High accuracy failed, attempting standard GPS...", err);
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => handleGPSSuccess(pos),
+                            (err2) => handleGPSError(err2),
+                            { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 }
+                        );
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+
+                // Continuous movement tracking
+                navigator.geolocation.watchPosition(
+                    (pos) => {
+                        const updatedCoords = [pos.coords.latitude, pos.coords.longitude];
+                        if (userMarker) {
+                            userMarker.setLatLng(updatedCoords);
+                        }
+                    },
+                    null,
+                    { enableHighAccuracy: false, maximumAge: 5000 }
+                );
+            } else {
+                handleGPSError("Not supported");
+            }
+        }
+
+        function retryGPS() {
+            if (startType === 'gps') {
+                acquireGPS();
             }
         }
 
         if (startType === 'uni') {
             updateRoute(locations.gate.coords, locations.gate.name);
         } else {
-            statusBanner.innerText = `📡 Locating your GPS position...`;
-
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        const userCoords = [position.coords.latitude, position.coords.longitude];
-
-                        if (!userMarker) {
-                            userMarker = L.marker(userCoords, { icon: userLiveIcon })
-                                .addTo(map)
-                                .bindPopup("<b>📱 You are here</b>");
-
-                            updateRoute(userCoords, "Your Live Location");
-                        } else {
-                            userMarker.setLatLng(userCoords);
-                            updateRoute(userCoords, "Your Live Location");
-                            statusBanner.innerText = `🚶 Guiding to ${targetDestination.name} — Tracking movement`;
-                        }
-                    },
-                    (error) => {
-                        console.warn("GPS failed, switching to University Gate [Toni]:", error);
-                        statusBanner.innerText = `⚠️ GPS unavailable. Guiding from ${locations.gate.name}`;
-                        updateRoute(locations.gate.coords, `${locations.gate.name} (Fallback)`);
-                    },
-                    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-                );
-            } else {
-                updateRoute(locations.gate.coords, locations.gate.name);
-            }
+            acquireGPS();
         }
     </script>
 </body>

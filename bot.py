@@ -3,7 +3,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
-from telegram import KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo, BotCommand
+from telegram import KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.request import HTTPXRequest
 
@@ -39,16 +39,12 @@ def start_health_check_server():
     server.serve_forever()
 
 async def post_init(application: Application) -> None:
-    """Registers the /start command in Telegram's menu button."""
-    commands = [
-        BotCommand("start", "📍 Show Navigation Buttons")
-    ]
-    await application.bot.set_my_commands(commands)
-    logger.info("Bot commands successfully registered with Telegram.")
+    """Removes commands from Telegram's menu button so only bottom reply keyboard exists."""
+    await application.bot.delete_my_commands()
+    logger.info("Cleared menu button commands.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        # Persistent Reply Keyboard attached to the bottom of the chat window
         keyboard = [
             [
                 KeyboardButton(
@@ -76,12 +72,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ]
         ]
         
-        # resize_keyboard=True keeps the buttons compact at the bottom
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         
         welcome_text = (
             "Welcome to the Fellowship Navigation Bot! ⛪\n\n"
-            "Your navigation buttons are now locked at the bottom of your screen.\n\n"
+            "Select an option below to navigate:\n\n"
             "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chapel\n"
             "general fellow ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶስ"
         )
