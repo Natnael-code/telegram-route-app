@@ -3,7 +3,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo, BotCommand
+from telegram import KeyboardButton, ReplyKeyboardMarkup, Update, WebAppInfo, BotCommand
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.request import HTTPXRequest
 
@@ -11,7 +11,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
-logger = logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -39,46 +39,49 @@ def start_health_check_server():
     server.serve_forever()
 
 async def post_init(application: Application) -> None:
-    """Automatically registers the /start command in Telegram's UI menu."""
+    """Registers the /start command in Telegram's menu button."""
     commands = [
-        BotCommand("start", "📍 Open Fellowship Navigation Menu")
+        BotCommand("start", "📍 Show Navigation Buttons")
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Bot commands successfully registered with Telegram.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
+        # Persistent Reply Keyboard attached to the bottom of the chat window
         keyboard = [
             [
-                InlineKeyboardButton(
-                    "📍 fellow - West MKC Church (Live GPS)", 
+                KeyboardButton(
+                    "📍 Church (Live GPS)", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
                 )
             ],
             [
-                InlineKeyboardButton(
-                    "📍 fellow - West MKC Church (From University Gate [Toni])", 
+                KeyboardButton(
+                    "📍 Church (From Uni Gate [Toni])", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
                 )
             ],
             [
-                InlineKeyboardButton(
+                KeyboardButton(
                     "⛪ Chapel (Live GPS)", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=gps")
                 )
             ],
             [
-                InlineKeyboardButton(
-                    "⛪ Chapel (From University Gate [Toni])", 
+                KeyboardButton(
+                    "⛪ Chapel (From Uni Gate [Toni])", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=uni")
                 )
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # resize_keyboard=True keeps the buttons compact at the bottom
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         
         welcome_text = (
             "Welcome to the Fellowship Navigation Bot! ⛪\n\n"
-            "Select your starting point and destination below:\n"
+            "Your navigation buttons are now locked at the bottom of your screen.\n\n"
             "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chapel\n"
             "general fellow ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶስ"
         )
@@ -108,7 +111,7 @@ def main():
         Application.builder()
         .token(BOT_TOKEN)
         .request(request)
-        .post_init(post_init)  # Auto-registers commands on startup
+        .post_init(post_init)
         .build()
     )
     
