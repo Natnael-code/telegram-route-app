@@ -39,22 +39,23 @@ def start_health_check_server():
     server.serve_forever()
 
 async def post_init(application: Application) -> None:
-    """Removes commands from Telegram's menu button so only bottom reply keyboard exists."""
+    # Ensure any stuck webhook is removed so polling works reliably
+    await application.bot.delete_webhook(drop_pending_updates=True)
     await application.bot.delete_my_commands()
-    logger.info("Cleared menu button commands.")
+    logger.info("Cleared webhooks and menu commands.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         keyboard = [
             [
                 KeyboardButton(
-                    "📍 Church (Live GPS)", 
+                    "📍 fellow-Church (Live GPS)", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=gps")
                 )
             ],
             [
                 KeyboardButton(
-                    "📍 Church (From Uni Gate [Toni])", 
+                    "📍fellow-Church (From [Toni])", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=church&start=uni")
                 )
             ],
@@ -66,7 +67,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             ],
             [
                 KeyboardButton(
-                    "⛪ Chapel (From Uni Gate [Toni])", 
+                    "⛪ Chapel (From [Toni])", 
                     web_app=WebAppInfo(url=f"{WEBAPP_URL}?dest=chapel&start=uni")
                 )
             ]
@@ -77,7 +78,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         welcome_text = (
             "Welcome to the Fellowship Navigation Bot! ⛪\n\n"
             "Select an option below to navigate:\n\n"
-            "ማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chapel\n"
+            "የማለዳ ጸሎት ከሰኞ እስከ ቅዳሜ በ chapel\n"
             "general fellow ቅዳሜ ከ12:00 ሰአት ጀምሮ በ ምእራብ መሰረተ ክርስቶስ"
         )
         
